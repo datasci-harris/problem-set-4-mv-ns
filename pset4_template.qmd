@@ -25,14 +25,143 @@ include-before-body:
 
 ## Download and explore the Provider of Services (POS) file (10 pts)
 
+```{python}
+import pandas as pd
+
+pos2016 = pd.read_csv('pos2016.csv')
+print(pos2016.head())
+```
+
 1. 
+
+```{python}
+print("Variable names:", df.columns.tolist())
+```
+
 2. 
     a.
-    b.
+```{python} 
+unique_values = pos2016['PRVDR_CTGRY_CD'].unique()
+print("Unique values for PRVDR_CTGRY_CD:", unique_values)
+```
+
+```{python} 
+pos2016 = pos2016[pos2016['PRVDR_CTGRY_CD'] == 1]
+pos2016 = pos2016[pos2016['PRVDR_CTGRY_CD'] == 1.0]
+print(pos2016.head())
+```
+
+```{python}
+num_observations = pos2016.shape[0]
+print("Number of observations in pos2016:", num_observations)
+```
+
+    b. By comparing numebr of observations for 2016 to the ones for 2017, 2018, and 2019, one can observe that the number is low. It could be possible that this way of identifying providers started to be used in 2017. 
+
 3. 
+
+2017
+```{python}
+pos2017 = pd.read_csv('pos2017.csv')
+print(pos2017.head())
+```
+
+```{python} 
+pos2017 = pos2017[pos2017['PRVDR_CTGRY_CD'] == 1]
+pos2017 = pos2017[pos2017['PRVDR_CTGRY_CD'] == 1.0]
+print(pos2017.head())
+```
+
+```{python}
+num_observations = pos2017.shape[0]
+print("Number of observations in pos2017:", num_observations)
+```
+
+2018
+```{python}
+pos2018 = pd.read_csv('pos2018.csv', encoding='ISO-8859-1')
+```
+
+```{python} 
+pos2018 = pos2018[pos2018['PRVDR_CTGRY_CD'] == 1]
+pos2018 = pos2018[pos2018['PRVDR_CTGRY_CD'] == 1.0]
+print(pos2018.head())
+```
+
+```{python}
+num_observations = pos2018.shape[0]
+print("Number of observations in pos2018:", num_observations)
+```
+
+2019
+```{python}
+pos2019 = pd.read_csv('pos2019.csv', encoding='ISO-8859-1')
+```
+
+```{python} 
+pos2019 = pos2019[pos2019['PRVDR_CTGRY_CD'] == 1]
+pos2019 = pos2019[pos2019['PRVDR_CTGRY_CD'] == 1.0]
+print(pos2017.head())
+```
+
+```{python}
+num_observations = pos2019.shape[0]
+print("Number of observations in pos2019:", num_observations)
+```
+
+Append
+```{python}
+pos2017['year'] = 2017
+pos2018['year'] = 2018
+pos2019['year'] = 2019
+
+print(pos2017.head)
+```
+
+```{python}
+combined_df = pd.concat([pos2017, pos2018, pos2019], axis=0, ignore_index=True)
+
+print(combined_df.columns)
+```
+
+```{python}
+import altair as alt
+```
+
+```{python}
+observations_per_year = combined_df.groupby('year').size().reset_index(name='count')
+
+chart = alt.Chart(observations_per_year).mark_bar().encode(
+    x=alt.X('year:O', title='Year'),
+    y=alt.Y('count:Q', title='Number of Observations'),
+    tooltip=['year:O', 'count:Q']
+).properties(
+    title='Number of Observations Per Year'
+)
+
+chart
+```
+
 4. 
     a.
-    b.
+```{python}
+unique_prvdr_counts = combined_df.groupby('year')['PRVDR_NUM'].nunique().reset_index()
+
+unique_prvdr_counts.columns = ['year', 'unique_prvdr_count']
+```
+
+```{python}
+chart = alt.Chart(unique_prvdr_counts).mark_bar().encode(
+    x=alt.X('year:O', title='Year'),
+    y=alt.Y('unique_prvdr_count:Q', title='Unique Number of Hospitals'),
+    tooltip=['year:O', 'unique_prvdr_count:Q']
+).properties(
+    title='Unique Number of Hospitals Per Year'
+)
+chart
+```
+
+    b.In 2019, the way of identifying hospitals changed. So this variable was not reported for any hospital this year. 
 
 ## Identify hospital closures in POS file (15 pts) (*)
 
