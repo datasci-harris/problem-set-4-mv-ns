@@ -1,5 +1,6 @@
 ---
 title: "Your Title"
+author: "Mario Venegas and Neil Stein"
 format: 
   pdf:
     keep-tex: true
