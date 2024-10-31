@@ -1,5 +1,5 @@
 ---
-title: "Your Title"
+title: "Problem Set 4 - Hospital Data"
 author: "Mario Venegas and Neil Stein"
 format: 
   pdf:
@@ -36,7 +36,7 @@ print(pos2016.head())
 1. 
 
 ```{python}
-print("Variable names:", df.columns.tolist())
+print("Variable names:", pos2016.columns.tolist())
 ```
 
 2. 
