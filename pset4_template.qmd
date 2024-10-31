@@ -174,15 +174,26 @@ import pandas as pd
 # finding suspect closures - joining data
 
 all_years_df = pd.merge(pos2016, combined_df, on= "FAC_NAME")
-closures_df = all_years_df.groupby("FAC_NAME")["year"].max().reset_index()
+closures_df = all_years_df.groupby(["FAC_NAME", "ZIP_CD_y"])["year"].max().reset_index()
+
 
 # isolating closures
 target_year = 2019
 closed_early = closures_df[closures_df["year"] < target_year]
-print(closed_early)
+print(f"There are {len(closed_early)} hospitals fitting this description")
 ```
 
 2. 
+
+```{python}
+import pandas as pd
+
+# sorting and finding the top 10
+
+closed_early_sorted = closed_early.sort_values(by= "FAC_NAME")
+print(closed_early_sorted[["FAC_NAME","year"]].head(10))
+```
+
 3. 
     a.
     b.
