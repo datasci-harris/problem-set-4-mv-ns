@@ -35,7 +35,7 @@ print(pos2016.head())
 1. 
 
 ```{python}
-print("Variable names:", df.columns.tolist())
+print("Variable names:", pos2016.columns.tolist())
 ```
 
 2. 
@@ -43,11 +43,14 @@ print("Variable names:", df.columns.tolist())
 ```{python} 
 unique_values = pos2016['PRVDR_CTGRY_CD'].unique()
 print("Unique values for PRVDR_CTGRY_CD:", unique_values)
+
+unique_values = pos2016['PRVDR_CTGRY_SBTYP_CD'].unique()
+print("Unique values for PRVDR_CTGRY_SBTYP_CD:", unique_values)
 ```
 
 ```{python} 
 pos2016 = pos2016[pos2016['PRVDR_CTGRY_CD'] == 1]
-pos2016 = pos2016[pos2016['PRVDR_CTGRY_CD'] == 1.0]
+pos2016 = pos2016[pos2016['PRVDR_CTGRY_SBTYP_CD'] == 1.0]
 print(pos2016.head())
 ```
 
