@@ -196,8 +196,49 @@ print(closed_early_sorted[["FAC_NAME","year"]].head(10))
 
 3. 
     a.
+```{python}
+import pandas as pd
+
+# function to comb through and check total hospitals by zip across years
+def merger_checker(df):
+    grouped_df = df.groupby(["ZIP_CD", "year", "FAC_NAME", "PRVDR_NUM"]).size().reset_index(name= "count") 
+    grouped_df = grouped_df.sort_values(["ZIP_CD", "year"])
+    grouped_df["merger_suspect"] = grouped_df.groupby("ZIP_CD")["count"].diff() !=0
+    grouped_df["merger_suspect"] = grouped_df["merger_suspect"].fillna(False)
+    return grouped_df
+
+merger_flagged_df = merger_checker(combined_df)
+'''
+print(merger_flagged_df.head(10))
+'''
+
+# checked the function via print, looks good! now we filter
+merge_filter = merger_flagged_df[merger_flagged_df["merger_suspect"] == True]
+
+```
+
     b.
+ ```{python}
+import pandas as pd
+
+# handling empty/NA values
+merge_filter["PRVDR_NUM"] = merge_filter["PRVDR_NUM"].fillna("terminated")
+print(f"There are {sum(merge_filter["PRVDR_NUM"] == "terminated")} hospitals fitting this description")
+
+# correcting to subset out the terminated codes
+terminated_cleaned = merge_filter[merge_filter["PRVDR_NUM"] != "terminated"]
+print(f"There are {len(terminated_cleaned)} hospitals that are left fitting this description")
+ ```
+
     c.
+```{python}
+import pandas as pd
+
+# sorting by name
+terminated_cleaned = terminated_cleaned.sort_values(by= "FAC_NAME")
+print(terminated_cleaned["FAC_NAME"].head(10))
+```
+
 
 ## Download Census zip code shapefile (10 pt) 
 
