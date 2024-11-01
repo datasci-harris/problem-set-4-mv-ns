@@ -246,29 +246,73 @@ print(terminated_cleaned["FAC_NAME"].head(10))
 ## Download Census zip code shapefile (10 pt) 
 
 1. 
-    a.
-    b. 
+    a.These files are associated with a geographic information system.
+    - .shp (shapefile) contains geometric data like points, lines, and polygos. 
+    - .shx (Shape Indez File) it is an intex for the .shp file, meaning it helps locate the geometry of the shapes stored in the .shp file. 
+    - .dbf ( Database File) stores attribute data for features defined in .shp file, such as names and measurements. Each file in .shp is a row in .dbf.
+    - .prj (Projection File) contains coordinate systems and projections used by the shapefile.
+    - .html (HTML file) contains documentation about the dataset or the shapefile.
+
+    b. The shape file is the biggest by far 817,915 KB, followed by .dbg by around 6,000, and then the .shx by 215 KB. The smallest of them all is .prj with just 1 KB.
 2. 
 
-## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
+```{python}
+import geopandas as gpd
 
-1. 
-2. 
-3. 
-4. 
-    a.
-    b.
-    c.
-5. 
-    a.
-    b.
-    c.
-    
-## Effects of closures on access in Texas (15 pts)
+zipcodes = gpd.read_file('gz_2010_us_860_00_500k.shp')
 
-1. 
-2. 
-3. 
-4. 
+print(zipcodes.head)
+```
 
-## Reflecting on the exercise (10 pts) 
+```{python}
+# Filter for Texas zip codes
+texas_zipcodes = zipcodes[zipcodes['ZCTA5'].str.startswith(('75', '76', '77', '78', '79'))]
+
+texas_zipcodes['ZCTA5'].nunique
+```
+
+```{python}
+# Filter for the year 2016 and count hospitals per zip code
+df_2016_tx = pos2016
+df_2016_tx['ZIP_CD'] = df_2016_tx['ZIP_CD'].astype(str)
+```
+
+```{python}
+import pandas as pd
+
+df_2016_tx = df_2016_tx[
+    (df_2016_tx['ZIP_CD'].str.startswith(('75', '76', '77', '78', '79'))) &
+    (df_2016_tx['ZIP_CD'].str.len() == 7)
+]
+
+# Replace '.0' with an empty string in the ZIP_CD column
+df_2016_tx['ZIP_CD'] = df_2016_tx['ZIP_CD'].str.replace('.0', '', regex=False)
+
+df_2016_tx = df_2016_tx.groupby("ZIP_CD").size().reset_index()
+
+# Renaming the columns
+df_2016_tx.columns = ['ZCTA5', 'HOSPITAL_COUNT']
+```
+
+```{python}
+df_2016_tx = texas_zipcodes.merge(df_2016_tx, on="ZCTA5", how="left")
+
+df_2016_tx['HOSPITAL_COUNT'] = df_2016_tx['HOSPITAL_COUNT'].fillna(0)
+```
+
+
+```{python}
+# Plot
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+
+# Plot the Texas zip codes with the number of hospitals
+df_2016_tx.plot(column='HOSPITAL_COUNT', cmap='Grays',
+                    linewidth=0.7, ax=ax, edgecolor="0.6", legend=True)
+
+ax.set_title("Hospitals in TX by Zipcode")
+
+# Show the plot
+plt.show()
+```
