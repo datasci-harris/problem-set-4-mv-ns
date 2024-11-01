@@ -1,5 +1,6 @@
 ---
-title: "Your Title"
+title: "Problem Set 4 - Hospital Data"
+author: "Mario Venegas and Neil Stein"
 format: 
   pdf:
     keep-tex: true
@@ -71,7 +72,7 @@ print(pos2017.head())
 
 ```{python} 
 pos2017 = pos2017[pos2017['PRVDR_CTGRY_CD'] == 1]
-pos2017 = pos2017[pos2017['PRVDR_CTGRY_CD'] == 1.0]
+pos2017 = pos2017[pos2017['PRVDR_CTGRY_SBTYP_CD'] == 1.0]
 print(pos2017.head())
 ```
 
@@ -87,7 +88,7 @@ pos2018 = pd.read_csv('pos2018.csv', encoding='ISO-8859-1')
 
 ```{python} 
 pos2018 = pos2018[pos2018['PRVDR_CTGRY_CD'] == 1]
-pos2018 = pos2018[pos2018['PRVDR_CTGRY_CD'] == 1.0]
+pos2018 = pos2018[pos2018['PRVDR_CTGRY_SBTYP_CD'] == 1.0]
 print(pos2018.head())
 ```
 
@@ -103,7 +104,7 @@ pos2019 = pd.read_csv('pos2019.csv', encoding='ISO-8859-1')
 
 ```{python} 
 pos2019 = pos2019[pos2019['PRVDR_CTGRY_CD'] == 1]
-pos2019 = pos2019[pos2019['PRVDR_CTGRY_CD'] == 1.0]
+pos2019 = pos2019[pos2019['PRVDR_CTGRY_SBTYP_CD'] == 1.0]
 print(pos2017.head())
 ```
 
@@ -169,11 +170,78 @@ chart
 ## Identify hospital closures in POS file (15 pts) (*)
 
 1. 
+
+```{python}
+import pandas as pd
+
+# finding suspect closures - joining data
+
+all_years_df = pd.merge(pos2016, combined_df, on= "FAC_NAME")
+closures_df = all_years_df.groupby(["FAC_NAME", "ZIP_CD_y"])["year"].max().reset_index()
+
+
+# isolating closures
+target_year = 2019
+closed_early = closures_df[closures_df["year"] < target_year]
+print(f"There are {len(closed_early)} hospitals fitting this description")
+```
+
 2. 
+
+```{python}
+import pandas as pd
+
+# sorting and finding the top 10
+
+closed_early_sorted = closed_early.sort_values(by= "FAC_NAME")
+print(closed_early_sorted[["FAC_NAME","year"]].head(10))
+```
+
 3. 
     a.
+```{python}
+import pandas as pd
+
+# function to comb through and check total hospitals by zip across years
+def merger_checker(df):
+    grouped_df = df.groupby(["ZIP_CD", "year", "FAC_NAME", "PRVDR_NUM"]).size().reset_index(name= "count") 
+    grouped_df = grouped_df.sort_values(["ZIP_CD", "year"])
+    grouped_df["merger_suspect"] = grouped_df.groupby("ZIP_CD")["count"].diff() !=0
+    grouped_df["merger_suspect"] = grouped_df["merger_suspect"].fillna(False)
+    return grouped_df
+
+merger_flagged_df = merger_checker(combined_df)
+'''
+print(merger_flagged_df.head(10))
+'''
+
+# checked the function via print, looks good! now we filter
+merge_filter = merger_flagged_df[merger_flagged_df["merger_suspect"] == True]
+
+```
+
     b.
+ ```{python}
+import pandas as pd
+
+# handling empty/NA values
+merge_filter["PRVDR_NUM"] = merge_filter["PRVDR_NUM"].fillna("terminated")
+print(f"There are {sum(merge_filter["PRVDR_NUM"] == "terminated")} hospitals fitting this description")
+
+# correcting to subset out the terminated codes
+terminated_cleaned = merge_filter[merge_filter["PRVDR_NUM"] != "terminated"]
+print(f"There are {len(terminated_cleaned)} hospitals that are left fitting this description")
+ ```
+
     c.
+```{python}
+import pandas as pd
+
+# sorting by name
+terminated_cleaned = terminated_cleaned.sort_values(by= "FAC_NAME")
+print(terminated_cleaned["FAC_NAME"].head(10))
+```
+
 
 ## Download Census zip code shapefile (10 pt) 
 
