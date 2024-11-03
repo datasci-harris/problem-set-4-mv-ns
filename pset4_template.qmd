@@ -498,12 +498,142 @@ The average value reported here is 0.00 miles, which does not make much sense. T
 ## Effects of closures on access in Texas (15 pts)
 
 1. 
+```{python}
+import pandas as pd
+
+# Ensure 'ZIP_CD' is of string type
+closed_early['ZIP_CD'] = closed_early['ZIP_CD'].astype(str)
+
+# Filter for Texas zip codes
+closed_early_tx = closed_early[
+    closed_early['ZIP_CD'].str.startswith(('75', '76', '77', '78', '79')) &
+    (closed_early['ZIP_CD'].str.len() == 7)
+]
+
+# Replace '.0' with an empty string in the ZIP_CD column
+closed_early_tx['ZIP_CD'] = closed_early_tx['ZIP_CD'].str.replace('.0', '', regex=False)
+
+# Group by ZIP_CD and count the number of closures
+closed_early_tx = closed_early_tx.groupby("ZIP_CD").size().reset_index(name='HOSPITAL_COUNT')
+
+# Rename columns
+closed_early_tx.columns = ['ZCTA5', 'HOSPITAL_COUNT']
+
+print(closed_early_tx)
+```
+
 2. 
-3. 
+```{python}
+closed_early_tx = texas_zipcodes.merge(closed_early_tx, on="ZCTA5", how="left")
+
+closed_early_tx['HOSPITAL_COUNT'] = closed_early_tx['HOSPITAL_COUNT'].fillna(0)
+
+print(closed_early_tx.columns)
+```
+
+```{python}
+# Plot
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+
+# Plot the Texas zip codes with the number of hospitals
+closed_early_tx.plot(column='HOSPITAL_COUNT', cmap='Grays',
+                    linewidth=0.7, ax=ax, edgecolor="0.6", legend=True)
+
+ax.set_title("Closed hospitals in TX")
+
+plt.show()
+```
+
+3.
+
+```{python}
+import geopandas as gpd
+import matplotlib.pyplot as plt
+
+affected_zipcodes_gdf = texas_zipcodes[texas_zipcodes['ZCTA5'].isin(closed_early_tx['ZCTA5'])]
+
+affected_zipcodes_gdf["buffer"] = affected_zipcodes_gdf.geometry.buffer(16093.4)
+
+affected_zipcodes_gdf = affected_zipcodes_gdf.rename(columns={"ZCTA5": "ZCTA5_buffer"})
+
+indirectly_affected = gpd.sjoin(
+    texas_zipcodes, affected_zipcodes_gdf, how="inner", predicate="intersects")
+
+buffer_gdf = indirectly_affected["ZCTA5_buffer"].unique()
+
+indirectly_affected_zips = indirectly_affected["ZCTA5"].unique()
+
+indirectly_affected_zips = indirectly_affected_zips[~np.isin(
+    indirectly_affected_zips, buffer_gdf)]
+
+count = len(indirectly_affected_zips)
+
+print(f"Number of indirectly affected zip codes: {count}")
+```
+
 4. 
+
+```{python}
+import geopandas as gpd
+import matplotlib.pyplot as plt
+
+# Rename columns for consistency
+affected_zipcodes_gdf = affected_zipcodes_gdf.rename(columns={'ZCTA5_buffer': 'ZCTA5'})
+indirectly_affected_zipcodes = indirectly_affected_zipcodes.rename(columns={'ZCTA5_left': 'ZCTA5'})
+
+# Create sets for affected zip codes
+directly_affected_set = set(affected_zipcodes_gdf['ZCTA5']) 
+indirectly_affected_set = set(indirectly_affected_zipcodes['ZCTA5']) 
+
+# Create a set for not affected zip codes
+all_texas_zipcodes = set(texas_zipcodes['ZCTA5'])
+not_affected_set = all_texas_zipcodes - directly_affected_set - indirectly_affected_set
+
+
+def categorize_zipcodes(row):
+    if row['ZCTA5'] in directly_affected_set:
+        return 'Directly Affected'
+    elif row['ZCTA5'] in indirectly_affected_set:
+        return 'Indirectly Affected'
+    elif row['ZCTA5'] in new_data_set:
+        return 'Not Affected'  # Considered as not affected if in new_data
+    else:
+        return 'Not Affected'
+
+# Add a new column for categories
+texas_zipcodes['category'] = texas_zipcodes.apply(categorize_zipcodes, axis=1)
+
+# Debug: Check the distribution of categories
+category_counts = texas_zipcodes['category'].value_counts()
+print("Category Distribution:\n", category_counts)
+
+# Define color mapping
+color_map = {
+    'Directly Affected': 'orange',
+    'Indirectly Affected': 'red',
+    'Not Affected': 'green'
+}
+
+# Map categories to colors
+texas_zipcodes['color'] = texas_zipcodes['category'].map(color_map)
+
+# Plotting
+fig, ax = plt.subplots(figsize=(10, 10))
+texas_zipcodes.plot(color=texas_zipcodes['color'], ax=ax, edgecolor='black')
+ax.set_title("Texas Zip Codes Affected by Hospital Closures")
+plt.show()
+
+```
 
 ## Reflecting on the exercise (10 pts) 
 
+Partner 1- 
+- Data Inconsistencies: Different sources may report hospital closures at varying times, leading to discrepancies. Changes in ownership or management can also affect closure statuses, making it challenging to maintain accurate records.
 
+- Incomplete Reporting: Hospitals, especially in rural areas, may not report closures promptly or accurately. This can result in missing data for facilities that have ceased operations but have not been officially documented as closed.
+
+- Temporary Closures Confusion: Some hospitals may temporarily close for renovations or other reasons, which can be misclassified as permanent closures. Clear definitions are needed to differentiate between temporary and permanent status to ensure accurate reporting.
 
 Partner 2 - The way we are measuring closures, by their presence in year n-1 and lack of presence in year n, is not the best way to track this information. We have identified in this exercise many hospitals that fit under this definition, yet we are not clearly tracking closures, rather the end of that particular hospital code being used. I believe that beyond the identified reason of mergers, there could be plenty of other reasons, such as downsizing, that have hospitals change their status. In my working experience in rural America I know that the difference between a rural medical care facility being a hospital vs. a clinic is often a matter of personnel, and people can easily shift around, which would result in a hospital being de-listed here as this list does not cover every single medical care facility. A better method here would be to pull out a list of names from our suspected closures list and perform a quick web-scraping operation to see whether or not this location is still open!
