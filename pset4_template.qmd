@@ -320,16 +320,180 @@ plt.show()
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
 1. 
+
+```{python}
+import geopandas as gpd
+import shapely
+from shapely import Polygon, Point, LineString
+
+# fresh import + getting the names of the columns
+all_zipcodes = gpd.read_file("gz_2010_us_860_00_500k.shp")
+all_zip_headers = all_zipcodes.columns
+print(all_zip_headers)
+print(all_zipcodes.head(10))
+
+# centroid creation
+all_zipcodes["centroid"] = all_zipcodes["geometry"].centroid
+all_zipcodes["centroid"].centroid.plot(markersize= 1)
+plt.axis("off")
+plt.show()
+
+# measuring our geo-dataframe
+zips_all_centroids = all_zipcodes.copy()
+length_all_zips = len(all_zipcodes)
+width_all_zips = len(all_zip_headers)
+
+print(f"the dimensions of zips_all_centroids is {length_all_zips} rows by {width_all_zips} columns")
+```
+
+# Columns Explained:
+    GEO_ID - unique ID code combining zip code, state, and census area ID codes
+    ZCTA5 - the 5 number zip code
+    NAME - the name of the zip code, in this case identical to ZCTA5
+    LSAD - Legal/Statistical Area Description, string to describe the geometry's category of statistical area 
+    CENSUSAREA - describes the specific census area involved
+    geometry - the polygonal attribute data, the coordinate dimensions of the polygon (or multi-polygon for certain areas) that are the borders of the statistical area
+
 2. 
+
+```{python}
+import geopandas as gpd
+
+# Texas subset of zipcodes
+zips_texas_centroids = all_zipcodes[all_zipcodes["ZCTA5"].str.startswith(("75","76","77","78", "79","88"))]
+# neighboring states plus texas -- asked ChatGPT to give me "what are the two digits at the start of the zipcodes for states surrounding Texas"
+texas_border_zips = ["75","76","77","78","79","88","70","71","72","73","74","87","88"]
+zips_texas_borderstates_centroids = all_zipcodes[all_zipcodes["ZCTA5"].str.startswith(tuple(texas_border_zips))]
+
+# counting unique zips
+tx_unique = zips_texas_centroids["ZCTA5"].nunique()
+tx_border_unique = zips_texas_borderstates_centroids["ZCTA5"].nunique()
+print(f"there are {tx_unique} zipcodes in Texas and {tx_border_unique} zipcodes in bordering states + Texas")
+```
+
+Please note - the suggested approach in the prompt would yield the number of zipcodes in Texas and only one interesting polygon in the bordering state, not the total in the bordering state, which is a logical problem in the prompt. I will execute the instructions as listed in the more accurate method listed above, however below is that code which the prompt suggests as being the right approach (again, not actually correct per the wording of the prompt). There is no column in the "gz_2010_us_860_00_500k.shp" data set that codes for State, so this prompt suggestion can't work without outside data.
+
+```{python}
+'''
+import geopandas as pd
+import uszipcode
+from shapely.geometry import shape
+
+# data prep
+tx_poly = zips_texas_centroids.dissolve()
+tx_zip_prefixes = ["75","76","77","78", "79","88"]
+
+non_tx_zips = all_zipcodes[~all_zipcodes["ZCTA5"].astype(str).str[:2].isin(tx_zip_prefixes)]
+spat_index = non_tx_zips.sindex
+
+# function creation
+def poly_intersect(row, tx_poly):
+    bordered_poly = sidx.query(tx_poly.bounds)
+    for idx in bordered_poly:
+        if row["geometry"].intersects(tx_poly.geometry[0]):
+            return True
+        return False
+
+non_tx_zips["intersects_tx"] = non_tx_zips.apply(poly_intersect, axis=1, args=(tx_poly,))
+
+# as mentioned, without state data we are stuck - solution is to import a new package that Chat GPT recommended - uszipcode
+
+search = uszipcode.SearchEngine(db= "zipcode")
+non_tx_zips["State"] = non_tx_zips["ZCTA5"].apply(lambda x: search.by_zipcode(x).state)
+bordering_states = non_tx_zips[non_tx_zips["intersects_tx"]]["State"].unique()
+
+print(bordering_states)
+'''
+```
+
 3. 
+```{python}
+import geopandas as gpd
+
+# Joining the data (inner) and filtering where at least one hospital is open in 2016
+joint_16_tx = zips_texas_borderstates_centroids.merge(df_2016_tx, on= "ZCTA5", how= "inner")
+zips_withhospital_centroids = joint_16_tx.groupby("ZCTA5").filter(lambda x: len(x) >=1)
+
+print(f"In 2016, there were {len(zips_withhospital_centroids)} zipcodes with at least one hospital")
+```
+
+Explanation - We decided on an inner join to combine this data, as we are interested in where we have intersecting occurances. Since earlier we cleaned up the ZCTA5 column in the texas 2016 df we decided to merge on that variable, which is also present in zips_texas_borderstates_centroids
+
 4. 
     a.
+```{python}
+import geopandas as gpd
+from shapely import Point
+
+# subset of 10 rows for the test
+ten_zip_test = zips_withhospital_centroids.head(10)
+
+# testing the larger code burden with these ten
+zips_texas_borderstates_centroids.set_geometry("centroid", inplace=True)
+ten_zip_test.set_geometry("centroid", inplace=True)
+spatial_test = gpd.sjoin_nearest(zips_texas_borderstates_centroids, ten_zip_test, how= "left", distance_col= "distance_m")
+
+# adding in distance calulcations
+def distance_calculator(row):
+    centroid1 = row["centroid"]
+    centroid2 = ten_zip_test.loc[row["index_right"], "centroid"]
+    return centroid1.distance(centroid2)
+
+spatial_test["distance_meters"] = spatial_test.apply(distance_calculator, axis=1)
+
+print(spatial_test[["ZCTA5_left", "ZCTA5_right", "distance_meters"]])
+```
+
+This result works, it ran on my computer in about 7 seconds (6.7 seconds specifically). Given that the length of the zips_withhospital_centroids full GeoDataFrame is 1935 in length, we can estimate this will take about 20 minutes to do the full dataframe!
+
     b.
+```{python}
+import geopandas as gpd
+from shapely import Point
+# full data setup
+zips_texas_borderstates_centroids.set_geometry("centroid", inplace=True)
+zips_withhospital_centroids.set_geometry("centroid", inplace=True)
+
+spatial_join = gpd.sjoin_nearest(zips_texas_borderstates_centroids, zips_withhospital_centroids, how= "left", distance_col= "distance_m")
+
+# remove identical zips (no distance between the same centroids!)
+spatial_join = spatial_join[spatial_join["ZCTA5_left"] != spatial_join["ZCTA5_right"]]
+spatial_join["distance_km"] = spatial_join["distance_m"] / 1000
+
+```
+
     c.
+```{python}
+# .prj file is in meters, I earlier converted to km, so now to switch to miles
+spatial_join["distance_miles"] = spatial_join["distance_m"] * 0.000621371
+```
+
 5. 
-    a.
-    b.
-    c.
+```{python}
+zips_withhospital_centroids.plot() 
+plt.show()
+
+```
+
+```{python}
+import pandas as pd
+import geopandas as gpd
+
+# distance calculation
+average_distances = spatial_join.groupby("ZCTA5_left")["distance_miles"].mean().reset_index()
+
+print(f"the average distance is {average_distances["distance_miles"].mean():.2f} miles")
+
+# setting up plotting
+hospital_dist_plotting = zips_withhospital_centroids.merge(average_distances, left_on= "ZCTA5", right_on= "ZCTA5_left", how= "left")
+
+# Plotting our values
+hospital_dist_plotting.plot(column= "distance_miles", legend= True)
+plt.title( "Average Distance to Nearest Hospital (Miles)")
+plt.show()
+```
+
+The average value reported here is 0.00 miles, which does not make much sense. This might suggest that there is a hospital in every zipcode, however that does not seem particularly likely given the results of section 3
     
 ## Effects of closures on access in Texas (15 pts)
 
@@ -340,3 +504,6 @@ plt.show()
 
 ## Reflecting on the exercise (10 pts) 
 
+
+
+Partner 2 - The way we are measuring closures, by their presence in year n-1 and lack of presence in year n, is not the best way to track this information. We have identified in this exercise many hospitals that fit under this definition, yet we are not clearly tracking closures, rather the end of that particular hospital code being used. I believe that beyond the identified reason of mergers, there could be plenty of other reasons, such as downsizing, that have hospitals change their status. In my working experience in rural America I know that the difference between a rural medical care facility being a hospital vs. a clinic is often a matter of personnel, and people can easily shift around, which would result in a hospital being de-listed here as this list does not cover every single medical care facility. A better method here would be to pull out a list of names from our suspected closures list and perform a quick web-scraping operation to see whether or not this location is still open!
