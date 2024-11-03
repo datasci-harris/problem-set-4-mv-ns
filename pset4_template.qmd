@@ -312,7 +312,3 @@ df_2016_tx.plot(column='HOSPITAL_COUNT', cmap='Grays',
                     linewidth=0.7, ax=ax, edgecolor="0.6", legend=True)
 
 ax.set_title("Hospitals in TX by Zipcode")
-
-# Show the plot
-plt.show()
-```
